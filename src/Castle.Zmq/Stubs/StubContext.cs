@@ -32,6 +32,11 @@
 			return socket;
 		}
 
+		public IZmqSocket CreateSocket(SocketType type, int rcvTimeoutInMilliseconds)
+		{
+			return CreateSocket(type);
+		}
+
 		public Dictionary<SocketType, StubSocket> LastSocketCreatedByType { get; private set; } 
 
 		public void Dispose()

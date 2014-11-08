@@ -47,7 +47,7 @@ namespace Castle.Zmq.Extensions
 			IZmqSocket socket;
 			if (!socketQueue.TryDequeue(out socket))
 			{
-				socket = this._context.CreateSocket(SocketType.Req);
+				socket = this._context.CreateSocket(SocketType.Req, 45000);
 
 				socket.Connect(endpoint);
 			}

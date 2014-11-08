@@ -71,6 +71,11 @@
 			return new Socket(this, type);
 		}
 
+		public IZmqSocket CreateSocket(SocketType type, int rcvTimeoutInMilliseconds)
+		{
+			return new Socket(this, type, rcvTimeoutInMilliseconds);
+		}
+
 		public void Dispose()
 		{
 			this.InternalDispose(true);
