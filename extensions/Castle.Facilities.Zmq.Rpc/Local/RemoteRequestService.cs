@@ -3,8 +3,12 @@ namespace Castle.Facilities.Zmq.Rpc
 	using System;
 	using Castle.Facilities.Zmq.Rpc.Remote;
 	using Castle.Zmq;
+	using Castle.Zmq.Counters;
 	using Castle.Zmq.Extensions;
 	using Castle.Zmq.Rpc.Model;
+	using StatsdClient;
+	using StatsdClient.Configuration;
+	using Stopwatch = System.Diagnostics.Stopwatch;
 
 	public class RemoteRequestService
 	{
@@ -27,76 +31,88 @@ namespace Castle.Facilities.Zmq.Rpc
 		public object Invoke(string host, string service, string methodName, 
 							 object[] parameters, Type[] parametersTypes, Type retType)
 		{
-			var endpoint = this._endpointRegistry.GetEndpoint(host);
+			var name = Naming.withEnvironmentApplicationAndHostname(PerfCounters.Metric(service, methodName));
 
-			var serializedArs = this._serializationStrategy.SerializeParameters(parameters, parametersTypes);
-			var serializedPInfo = this._serializationStrategy.SerializeParameterTypes(parametersTypes);
-
-			var requestMessage = new RequestMessage(service, methodName, serializedArs, serializedPInfo);
-
-			var request = new RemoteRequest(this._context, endpoint, requestMessage, this._serializationStrategy)
+			using (Metrics.StartTimer(name + ".latency"))
 			{
-				ReqPoll = this._requestPoll
-			};
-
-			var watch = System.Diagnostics.Stopwatch.StartNew();
-			if (Castle.Zmq.LogAdapter.LogEnabled)
-			{
-				Castle.Zmq.LogAdapter.LogDebug(
-					"Castle.Facilities.Zmq.Rpc.RemoteRequestService", 
-					"About to send request for " + host + "-" + service + "-" + methodName);
-			}
-
-			var attempts = 0;
-			const int maxAttempts = 3;
-
-			ResponseMessage response = null;
-
-			while (attempts++ < maxAttempts)
-			{
-//				request.Monitor = attempts > 1;
-
-				response = request.Get();
-
-				watch.Stop();
-				if (Castle.Zmq.LogAdapter.LogEnabled)
+				try
 				{
-					Castle.Zmq.LogAdapter.LogDebug(
-						"Castle.Facilities.Zmq.Rpc.RemoteRequestService",
-						"Reply from " + host + "-" + service + "-" + methodName +
-						" took " + watch.ElapsedMilliseconds + "ms (" + watch.Elapsed.TotalSeconds + "s). " +
-						"Exception? " + (response.ExceptionInfo != null));
-				}
+					var endpoint = this._endpointRegistry.GetEndpoint(host);
 
-				if (response.ExceptionInfo != null)
-				{
-					if (response.ExceptionInfo.Typename == RemoteRequest.TimeoutTypename)
+					var serializedArs = this._serializationStrategy.SerializeParameters(parameters, parametersTypes);
+					var serializedPInfo = this._serializationStrategy.SerializeParameterTypes(parametersTypes);
+
+					var requestMessage = new RequestMessage(service, methodName, serializedArs, serializedPInfo);
+
+					var request = new RemoteRequest(this._context, endpoint, requestMessage, this._serializationStrategy)
 					{
-						// our side (local) set a exception info just to inform us - the caller - about a timeout. 
-						// since that's the case, attempt to try again
-						continue;
+						ReqPoll = this._requestPoll
+					};
+
+					var watch = Stopwatch.StartNew();
+					if (LogAdapter.LogEnabled)
+					{
+						LogAdapter.LogDebug(
+							"Castle.Facilities.Zmq.Rpc.RemoteRequestService",
+							"About to send request for " + host + "-" + service + "-" + methodName);
 					}
 
-					// otherwise -- it's some other kind of error, and we should just fail fast
-					ThrowWithExceptionInfoData(response);
+					var attempts = 0;
+					const int maxAttempts = 3;
+
+					ResponseMessage response = null;
+
+					while (attempts++ < maxAttempts)
+					{
+		//				request.Monitor = attempts > 1;
+
+						response = request.Get();
+
+						watch.Stop();
+						if (LogAdapter.LogEnabled)
+						{
+							LogAdapter.LogDebug(
+								"Castle.Facilities.Zmq.Rpc.RemoteRequestService",
+								"Reply from " + host + "-" + service + "-" + methodName +
+								" took " + watch.ElapsedMilliseconds + "ms (" + watch.Elapsed.TotalSeconds + "s). " +
+								"Exception? " + (response.ExceptionInfo != null));
+						}
+
+						if (response.ExceptionInfo != null)
+						{
+							if (response.ExceptionInfo.Typename == RemoteRequest.TimeoutTypename)
+							{
+								// our side (local) set a exception info just to inform us - the caller - about a timeout. 
+								// since that's the case, attempt to try again
+								continue;
+							}
+
+							// otherwise -- it's some other kind of error, and we should just fail fast
+							ThrowWithExceptionInfoData(response);
+						}
+
+						// all went fine
+
+						if (retType != typeof (void))
+						{
+							return _serializationStrategy.DeserializeResponseValue(response, retType);
+						}
+
+						return null;
+					}
+
+					if (response.ExceptionInfo != null)
+					{
+						ThrowWithExceptionInfoData(response);
+					}
+
+					return null;
 				}
-
-				// all went fine
-
-				if (retType != typeof(void))
+				finally
 				{
-					return _serializationStrategy.DeserializeResponseValue(response, retType);
+					Metrics.Counter(name + ".req");
 				}
-
-				return null;
 			}
-
-			if (response.ExceptionInfo != null)
-			{
-				ThrowWithExceptionInfoData(response);
-			}
-
-			return null;
 		}
 
 		private static void ThrowWithExceptionInfoData(ResponseMessage response)

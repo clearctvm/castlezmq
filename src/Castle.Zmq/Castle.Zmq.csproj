@@ -39,7 +39,6 @@
   <ItemGroup>
     <Compile Include="Context.cs" />
     <Compile Include="ContextExtensions.cs" />
-    <Compile Include="Counters\PerfCounterRegistry.cs" />
     <Compile Include="Counters\PerfCounters.cs" />
     <Compile Include="Extensions\BasePublisher.cs" />
     <Compile Include="Extensions\BaseRequest.cs" />

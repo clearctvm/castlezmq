@@ -7,8 +7,11 @@
 	using Castle.Facilities.Zmq.Rpc.Internal;
 	using Castle.Facilities.Zmq.Rpc.Local;
 	using Castle.Zmq;
+	using Castle.Zmq.Counters;
 	using Castle.Zmq.Extensions;
 	using Castle.Zmq.Rpc.Model;
+	using StatsdClient;
+	using StatsdClient.Configuration;
 
 
 	/// <summary>
@@ -69,19 +72,34 @@
 
 		private void OnRequestReceived(byte[] message, IZmqSocket socket)
 		{
-			var reqMessage = _serializationStrategy.DeserializeRequest(message);
+			var stopWatch = new Stopwatch();
+			stopWatch.Start();
+			string name = null;
 
-			ResponseMessage response = InternalDispatch(reqMessage);
+			try
+			{
+				var reqMessage = _serializationStrategy.DeserializeRequest(message);
 
-			var buffer = _serializationStrategy.SerializeResponse(response);
-			socket.Send(buffer);
+				name = PerfCounters.Metric(reqMessage.TargetService, reqMessage.TargetMethod);
+
+				ResponseMessage response = InternalDispatch(reqMessage);
+
+				var buffer = _serializationStrategy.SerializeResponse(response);
+				socket.Send(buffer);
+			}
+			finally
+			{
+				RemoteRequestListener.EndTiming(stopWatch, name);
+			}
 		}
+
+		
 
 		private ResponseMessage InternalDispatch(RequestMessage reqMessage)
 		{
 			ResponseMessage response = null;
 
-			var watch = System.Diagnostics.Stopwatch.StartNew();
+			//var watch = System.Diagnostics.Stopwatch.StartNew();
 			if (Castle.Zmq.LogAdapter.LogEnabled)
 			{
 //				Castle.Zmq.LogAdapter.LogDebug(
@@ -109,7 +127,7 @@
 			}
 			finally
 			{
-				watch.Stop();
+				//watch.Stop();
 
 				if (Castle.Zmq.LogAdapter.LogEnabled)
 				{
@@ -182,12 +200,36 @@
 
 		private void OnRequestReceived(byte[] message, IZmqSocket socket)
 		{
-			var reqMessage = _serializationStrategy.DeserializeRequest(message);
+			var stopWatch = new Stopwatch();
+			stopWatch.Start();
+			string name = null;
 
-			ResponseMessage response = InternalDispatch(reqMessage);
+			try
+			{
+				var reqMessage = _serializationStrategy.DeserializeRequest(message);
+				
+				name = PerfCounters.Metric(reqMessage.TargetService, reqMessage.TargetMethod);
 
-			var buffer = _serializationStrategy.SerializeResponse(response);
-			socket.Send(buffer);
+				ResponseMessage response = InternalDispatch(reqMessage);
+
+				var buffer = _serializationStrategy.SerializeResponse(response);
+				socket.Send(buffer);
+			}
+			finally
+			{
+				EndTiming(stopWatch, name);
+			}
+		}
+
+		public static void EndTiming(Stopwatch stopWatch, string name)
+		{
+			stopWatch.Stop();
+
+			if (!string.IsNullOrEmpty(name))
+			{
+				Metrics.Timer(Naming.withEnvironmentApplicationAndHostname(name + ".latency"), stopWatch.ElapsedMilliseconds());
+				Metrics.Counter(Naming.withEnvironmentApplicationAndHostname(name + ".rep"));
+			}
 		}
 
 		private ResponseMessage InternalDispatch(RequestMessage reqMessage)
