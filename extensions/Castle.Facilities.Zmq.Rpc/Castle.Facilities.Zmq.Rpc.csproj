@@ -40,8 +40,9 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\lib\castle\Castle.Windsor.dll</HintPath>
     </Reference>
-    <Reference Include="protobuf-net">
-      <HintPath>..\..\packages\protobuf-net.2.0.0.668\lib\net40\protobuf-net.dll</HintPath>
+    <Reference Include="protobuf-net, Version=2.1.0.0, Culture=neutral, PublicKeyToken=257b51d87d2e4d67, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\protobuf-net.2.1.0\lib\net40\protobuf-net.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="StatsdClient">
       <HintPath>..\..\lib\statsd\StatsdClient.dll</HintPath>
@@ -74,9 +75,6 @@
     <Compile Include="Internal\Serialization.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\..\src\Castle.Zmq\Castle.Zmq.csproj">
       <Project>{8a7e293c-909d-4de9-a601-f4b817a1b419}</Project>
       <Name>Castle.Zmq</Name>
@@ -86,7 +84,9 @@
       <Name>Castle.Zmq.Rpc</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
