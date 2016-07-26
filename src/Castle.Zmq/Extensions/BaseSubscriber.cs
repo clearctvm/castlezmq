@@ -29,9 +29,7 @@
 			this._context.Disposing += OnZmqContextDisposing;
 		}
 
-		public string Endpoint { get { return _endpoint; } set { _endpoint = value; } }
-
-		protected virtual string Endpoint
+		protected string Endpoint
 		{
 			get { return _endpoint; }
 			set { _endpoint = value; }
