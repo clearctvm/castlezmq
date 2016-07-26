@@ -7,8 +7,10 @@
 	public abstract class BaseSubscriber<T> : IDisposable
 	{
 		private readonly IZmqContext _context;
-		private readonly string _endpoint;
 		private readonly Func<byte[], T> _deserializer;
+
+		protected string _endpoint;
+
 		private IZmqSocket _socket;
 		private bool _started;
 		private volatile bool _disposed;
@@ -25,6 +27,12 @@
 			this._deserializer = deserializer;
 
 			this._context.Disposing += OnZmqContextDisposing;
+		}
+
+		protected virtual string Endpoint
+		{
+			get { return _endpoint; }
+			set { _endpoint = value; }
 		}
 
 		protected abstract void OnReceived(string topic, T message);
@@ -57,7 +65,7 @@
 			}
 			if (!this._started)
 			{
-				this._socket.Connect(this._endpoint);
+				this._socket.Connect(Endpoint);
 
 				this._worker = new Thread(OnRecvWorker) 
 				{
@@ -73,7 +81,7 @@
 			EnsureNotDisposed();
 			if (this._started)
 			{
-				this._socket.Unbind(this._endpoint);
+				this._socket.Unbind(Endpoint);
 				this._started = false;
 			}
 		}
