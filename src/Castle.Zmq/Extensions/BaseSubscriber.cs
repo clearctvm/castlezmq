@@ -7,8 +7,8 @@
 	public abstract class BaseSubscriber<T> : IDisposable
 	{
 		private readonly IZmqContext _context;
-		private readonly string _endpoint;
 		private readonly Func<byte[], T> _deserializer;
+		private string _endpoint;
 		private IZmqSocket _socket;
 		private bool _started;
 		private volatile bool _disposed;
@@ -26,6 +26,8 @@
 
 			this._context.Disposing += OnZmqContextDisposing;
 		}
+
+		public string Endpoint { get { return _endpoint; } set { _endpoint = value; } }
 
 		protected abstract void OnReceived(string topic, T message);
 
